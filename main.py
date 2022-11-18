@@ -101,6 +101,19 @@ Program Headers:
             self.critical.append(process.name)
         """
 
+    def check_packed_file(filename):
+        import subprocess
+        packers= { "UPX":"UPX0", "upx":"UPX1", "Upx":"UPX2", "Aspack":"aspack", "aspack":"adata",
+                   "NSPack":"NSP0", "nspack":"NSP1", "NSpack":"NSP2", "NTKrnl":"NTKrnl Security Suite",
+                   "PECompact":"PEC2", "pecompact":"PECompact2", "Themida":"Themida", "hemida":"aPa2Wa"}
+        for el in packers:
+            bashCommand = "strings %s | grep %s" % (filename, packers[el])
+            process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+            output, error = process.communicate()
+            if output != "":
+                return "File %s can be packed with %s" % (filename, el)
+        return ""
+
     def event_loop(self):
         last_set = set()
         while True:
