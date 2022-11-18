@@ -49,41 +49,17 @@ class Process:
 
 
 
-    def wx_checker(self):
-        dummy = """Elf file type is DYN (Shared object file)
-Entry point 0x38a0
-There are 9 program headers, starting at offset 64
-
-Program Headers:
-  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
-  PHDR           0x000040 0x0000000000000040 0x0000000000000040 0x0001f8 0x0001f8 RwxE 0x8
-  INTERP         0x000238 0x0000000000000238 0x0000000000000238 0x00001c 0x00001c R   0x1
-      [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
-  LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x00a470 0x00a470 R E 0x200000
-  LOAD           0x00a930 0x000000000020a930 0x000000000020a930 0x0007d0 0x0015a8 RW  0x200000
-  DYNAMIC        0x00a990 0x000000000020a990 0x000000000020a990 0x000210 0x000210 RWX 0x8
-  NOTE           0x000254 0x0000000000000254 0x0000000000000254 0x000044 0x000044 R   0x4
-  GNU_EH_FRAME   0x009640 0x0000000000009640 0x0000000000009640 0x0001ec 0x0001ec Rwx   0x4
-  GNU_STACK      0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000 RWx  0x10
-  GNU_RELRO      0x00a930 0x000000000020a930 0x000000000020a930 0x0006d0 0x0006d0 R   0x1
-
- Section to Segment mapping:
-  Segment Sections...
-   00     
-   01     .interp 
-   02     .interp .note.ABI-tag .note.gnu.build-id .gnu.hash .dynsym .dynstr .gnu.version .gnu.version_r .rela.dyn .rela.plt .init .plt .plt.got .text .fini .rodata .eh_frame_hdr .eh_frame 
-   03     .init_array .fini_array .data.rel.ro .dynamic .got .data .bss 
-   04     .dynamic 
-   05     .note.ABI-tag .note.gnu.build-id 
-   06     .eh_frame_hdr 
-   07     
-   08     .init_array .fini_array .data.rel.ro .dynamic .got 
-"""
+    def wx_checker(self, filename):
+        import subprocess
+        bashCommand = "readelf --segments --wide  %s" % (filename)
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        output, error = process.communicate()
+        dummy = output
         wx_headers = re.findall('(.*)( *)( 0x.*)+ .?wx', dummy.lower())
         headers = re.findall('(.*)( *)( 0x.*)+ [rwxe]', dummy.lower())
         segments = set()
         for header in wx_headers:
-            segment = str(headers.index(header)+1) if headers.index(header)+1 > 9 else f"0{headers.index(header)+1}"
+            segment = str(headers.index(header)) if headers.index(header) > 9 else f"0{headers.index(header)}"
             try:
                 wx_sections = re.search(f'( *){segment}( *)(\..*)', dummy).group(3).split()
                 segments.update(wx_sections)
