@@ -92,6 +92,12 @@ Program Headers:
         return segments
         #return SET with segments
 
+    @staticmethod
+    def get_exec_by_pid(pid):
+        output = os.popen(f'pwdx {pid}').read()
+        path_to_file = re.search('([0-9]*): (.*)', output)
+        return path_to_file
+
     def __sort(self):
         # TODO
         """
@@ -122,6 +128,5 @@ Program Headers:
 
 if __name__ == '__main__':
     p = Process()
-    print(p.wx_checker())
-    #p.event_loop()
+    p.event_loop()
 
