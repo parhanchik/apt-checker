@@ -93,7 +93,7 @@ Program Headers:
         #return SET with segments
 
     @staticmethod
-    def get_exec_by_pid(pid):
+    def get_exec_path_by_pid(pid):
         output = os.popen(f'pwdx {pid}').read()
         path_to_file = re.search('([0-9]*): (.*)', output)
         return path_to_file
@@ -120,6 +120,19 @@ Program Headers:
                 return "File %s can be packed with %s" % (filename, el)
         return ""
 
+    def compare_memore(self, pid):
+        ram_memory = os.popen(f'gcore {pid}').read()
+        file_memory = None
+
+        with open(self.get_exec_path_by_pid(pid), 'rb') as exec_file:
+            file_memory = exec_file.read()
+        if file_memory == ram_memory:
+            print('TRUUUUUE')
+            #return True
+        else:
+            print('FAAALSEEEE')
+            return False
+
     def event_loop(self):
         last_set = set()
         while True:
@@ -133,6 +146,7 @@ Program Headers:
                 connection = self._get_connection(proc)
                 res += base_info if base_info is not None else ""
                 res += connection if connection is not None else ""
+                self.get_exec_path_by_pid(proc.pid)
 
                 # if "Network connection" in res:
                 #    print(res)
