@@ -2,10 +2,74 @@ import psutil
 import os
 import re
 import time
+from math import pi, atan
+import logging
+
+
+class CustomFormatter(logging.Formatter):
+    yellow = "\033[33m"
+    bright_yellow = "\033[93m"
+    red = "\033[31m"
+    bright_red = "\033[91m"
+
+    bold = "\033[1m"
+    reset = "\033[0m"
+
+    date = "%(asctime)s.%(msecs)03d"
+    level = " | %(levelname)s"
+    message = " %(message)s"
+
+    FORMATS = {
+        logging.DEBUG: bold + date + bright_yellow + level + 4 * ' ' + '|' + message + reset,
+        logging.INFO: bold + date + level + 5 * ' ' + '|' + message + reset,
+        logging.WARNING: bold + date + yellow + level + 2 * ' ' + '|' + message + reset,
+        logging.ERROR: bold + date + red + level + 4 * ' ' + '|' + message + reset,
+        logging.CRITICAL: bold + date + bright_red + level + ' ' + '|' + message + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt, datefmt='%H:%M:%S')
+        return formatter.format(record)
+
+
+
+class Score:
+    def __init__(self):
+        self.max = pi / 2
+        self.warn = self.max * 0.85
+        self.critical = self.max * 0.95
+        self.total = 0
+
+    def get_verdict(self):
+        if atan(self.total) >= self.critical:
+            return 'critical'
+        elif atan(self.total) >= self.warn and atan(self.total) < self.critical:
+            return 'warning'
+        else:
+            return 'harmless'
+
+    def ip_rating(self, reputation):
+        score = 20
+        if reputation is not None:
+            if reputation > 10:
+                self.total += score
+            elif reputation > 0:
+                self.total += score/2
+            else:
+                # good ip
+                pass
+        else:
+            raise Exception('Scoring: IP reputation is None')
+
+    def wx_segments(self, segments):
+        score = 10
+        self.total += score * len(segments)
 
 
 class Process:
     def __init__(self):
+        self.ip = None
         self.warning = []
         self.critical = []
 
@@ -17,6 +81,7 @@ class Process:
                 pcon = res[0]
                 if pcon.raddr:
                     output += f"Network connection:\n\t\tip:\t{pcon.raddr.ip}:{pcon.raddr.port}\n"
+                    self.ip = pcon.raddr.ip
 
                     # get domain name
                     domain = os.popen(f"dig -x {pcon.raddr.ip} +short | awk -F '.' '{{print $0}}'").read()[:-2]
@@ -42,12 +107,11 @@ class Process:
     def _get_name(self, process):
         try:
             proc_name = process.name()
-            proc_id = process.pid
-            return f"name: {proc_name}\npid: {proc_id}\n"
+            #proc_id = process.pid
+            return proc_name
+            #return f"name: {proc_name}\npid: {proc_id}\n"
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
-
-
 
     def wx_checker(self, filename):
         import subprocess
@@ -66,7 +130,7 @@ class Process:
             except AttributeError:
                 pass
         return segments
-        #return SET with segments
+        # return SET with segments
 
     @staticmethod
     def get_exec_path_by_pid(pid):
@@ -74,7 +138,7 @@ class Process:
         path_to_file = re.search('([0-9]*): (.*)', output)
         return path_to_file
 
-    def __sort(self):
+    def __sort(self, pname, verdict, weight, max_weight, report):
         # TODO
         """
         if process.weight >= middle and process.weight < high:
@@ -82,12 +146,19 @@ class Process:
         elif process.weight >= high:
             self.critical.append(process.name)
         """
+        if verdict == 'critical':
+            self.critical.append(pname)
+            logger.critical(f"Process {pname} mark as CRITICAL (total - {weight}/{max_weight}): {report}")
+        elif verdict == 'warning':
+            self.warning.append(pname)
+            logger.critical(f"Process {pname} mark as WARNING (total - {weight}/{max_weight}): {report}")
 
+    @staticmethod
     def check_packed_file(filename):
         import subprocess
-        packers= { "UPX":"UPX0", "upx":"UPX1", "Upx":"UPX2", "Aspack":"aspack", "aspack":"adata",
-                   "NSPack":"NSP0", "nspack":"NSP1", "NSpack":"NSP2", "NTKrnl":"NTKrnl Security Suite",
-                   "PECompact":"PEC2", "pecompact":"PECompact2", "Themida":"Themida", "hemida":"aPa2Wa"}
+        packers = {"UPX": "UPX0", "upx": "UPX1", "Upx": "UPX2", "Aspack": "aspack", "aspack": "adata",
+                   "NSPack": "NSP0", "nspack": "NSP1", "NSpack": "NSP2", "NTKrnl": "NTKrnl Security Suite",
+                   "PECompact": "PEC2", "pecompact": "PECompact2", "Themida": "Themida", "hemida": "aPa2Wa"}
         for el in packers:
             bashCommand = "strings %s | grep %s" % (filename, packers[el])
             process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -96,6 +167,7 @@ class Process:
                 return "File %s can be packed with %s" % (filename, el)
         return ""
 
+    """
     def compare_memore(self, pid):
         ram_memory = os.popen(f'gcore {pid}').read()
         file_memory = None
@@ -104,10 +176,23 @@ class Process:
             file_memory = exec_file.read()
         if file_memory == ram_memory:
             print('TRUUUUUE')
-            #return True
+            # return True
         else:
             print('FAAALSEEEE')
             return False
+    """
+    @staticmethod
+    def get_ip_info_from_virustotal(ip):
+        import requests
+        response = requests.get(f'https://www.virustotal.com/api/v3/ip_addresses/{ip}',
+                                headers={
+                                    'x-apikey': '87e1316d0cbe224ca6295c8f22451f4ad2ac47919e059979ef5baacb17cba903'})
+        if response.ok:
+            print(f"{ip} :: {response.json()}")
+            print(response.json()['data']['attributes']['reputation'])
+            return response.json()['data']['attributes']['reputation']
+        else:
+            logger.critical(f'VirusTotal response code == {response.status_code} on get IP info request: {response.json()}')
 
     def event_loop(self):
         last_set = set()
@@ -116,6 +201,15 @@ class Process:
             diff = proc_set - last_set
             last_set = proc_set
             for proc in diff:
+                scoring = Score()
+
+                base_info = self._get_name(proc)
+                connection = self._get_connection(proc)
+
+                if self.ip is not None:
+                    scoring.ip_rating(self.get_ip_info_from_virustotal(self.ip))
+                scoring.wx_segments(self.wx_checker(self._get_name()))
+                """
                 res = ""
 
                 base_info = self._get_name(proc)
@@ -123,13 +217,21 @@ class Process:
                 res += base_info if base_info is not None else ""
                 res += connection if connection is not None else ""
                 self.get_exec_path_by_pid(proc.pid)
-
                 # if "Network connection" in res:
                 #    print(res)
                 print(res)
+                """
 
 
 if __name__ == '__main__':
+    logging.Formatter(datefmt='%H:%M:%S')
+    handler = logging.StreamHandler()
+    handler.setFormatter(CustomFormatter())
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
     p = Process()
     p.event_loop()
-
+    # p.event_loop()
