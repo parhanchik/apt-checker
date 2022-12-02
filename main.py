@@ -142,7 +142,7 @@ class Process:
         # return SET with segments
 
     def sign_checker(self, filename):
-        #output = os.popen(f'pwdx {pid}').read()
+        output = os.popen(f'readelf --readelf {filename}').read()
         res = re.search('\[\s*[0-9]*\]\s*.*sig.*', output)
         if res:
             return True
