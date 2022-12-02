@@ -33,13 +33,16 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-
 class Score:
     def __init__(self):
         self.max = pi / 2
         self.warn = self.max * 0.85
         self.critical = self.max * 0.95
         self.total = 0
+        self.score = {'sign': 10,
+                      'wx_segments': 10,
+                      'packed_file': 15,
+                      'ip_rating': 20}
 
     def get_verdict(self):
         if atan(self.total) >= self.critical:
@@ -50,12 +53,11 @@ class Score:
             return 'harmless'
 
     def ip_rating(self, reputation):
-        score = 20
         if reputation is not None:
             if reputation > 10:
-                self.total += score
+                self.total += self.score['ip_rating']
             elif reputation > 0:
-                self.total += score/2
+                self.total += self.score['ip_rating']/2
             else:
                 # good ip
                 pass
@@ -63,8 +65,15 @@ class Score:
             raise Exception('Scoring: IP reputation is None')
 
     def wx_segments(self, segments):
-        score = 10
-        self.total += score * len(segments)
+        self.total += self.score['wx_segments'] * len(segments)
+
+    def sign(self, is_sign):
+        if is_sign:
+            self.total += self.score['is_sign']
+
+    def packed_file(self, is_packed):
+        if is_packed:
+            self.total += self.score['packed_file']
 
 
 class Process:
@@ -132,6 +141,15 @@ class Process:
         return segments
         # return SET with segments
 
+    def sign_checker(self, filename):
+        #output = os.popen(f'pwdx {pid}').read()
+        res = re.search('\[\s*[0-9]*\]\s*.*sig.*', output)
+        if res:
+            return True
+        else:
+            return False
+
+
     @staticmethod
     def get_exec_path_by_pid(pid):
         output = os.popen(f'pwdx {pid}').read()
@@ -164,8 +182,10 @@ class Process:
             process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
             output, error = process.communicate()
             if output != "":
-                return "File %s can be packed with %s" % (filename, el)
-        return ""
+                #return "File %s can be packed with %s" % (filename, el)
+                return True
+        return False
+        #return ""
 
     """
     def compare_memore(self, pid):
@@ -209,6 +229,8 @@ class Process:
                 if self.ip is not None:
                     scoring.ip_rating(self.get_ip_info_from_virustotal(self.ip))
                 scoring.wx_segments(self.wx_checker(self._get_name()))
+                scoring.sign(self.sign_checker(self._get_name()))
+                scoring.packed_file(self.check_packed_file(self._get_name()))
                 """
                 res = ""
 
@@ -253,4 +275,7 @@ for line in maps_file.readlines():  # for each mapped region
 maps_file.close()
 mem_file.close()
 output_file.close()
+
+res = re.search('\[\s*[0-9]*\]\s*.*sig.*', sig)
+
 """
