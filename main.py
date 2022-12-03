@@ -4,6 +4,8 @@ import re
 import time
 from math import pi, atan
 import logging
+import ctypes, sys
+import hashlib
 
 
 class CustomFormatter(logging.Formatter):
@@ -42,7 +44,8 @@ class Score:
         self.score = {'sign': 10,
                       'wx_segments': 10,
                       'packed_file': 15,
-                      'ip_rating': 20}
+                      'ip_rating': 20,
+                      'mem_diff': 100}
 
     def get_verdict(self):
         if atan(self.total) >= self.critical:
@@ -57,7 +60,7 @@ class Score:
             if reputation > 10:
                 self.total += self.score['ip_rating']
             elif reputation > 0:
-                self.total += self.score['ip_rating']/2
+                self.total += self.score['ip_rating'] / 2
             else:
                 # good ip
                 pass
@@ -75,6 +78,9 @@ class Score:
         if is_packed:
             self.total += self.score['packed_file']
 
+    def mem_diff(self, is_diff):
+        if is_diff:
+            self.total += self.score['mem_diff']
 
 class Process:
     def __init__(self):
@@ -116,9 +122,9 @@ class Process:
     def _get_name(self, process):
         try:
             proc_name = process.name()
-            #proc_id = process.pid
+            # proc_id = process.pid
             return proc_name
-            #return f"name: {proc_name}\npid: {proc_id}\n"
+            # return f"name: {proc_name}\npid: {proc_id}\n"
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
 
@@ -148,7 +154,6 @@ class Process:
             return True
         else:
             return False
-
 
     @staticmethod
     def get_exec_path_by_pid(pid):
@@ -182,25 +187,11 @@ class Process:
             process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
             output, error = process.communicate()
             if output != "":
-                #return "File %s can be packed with %s" % (filename, el)
+                # return "File %s can be packed with %s" % (filename, el)
                 return True
         return False
-        #return ""
+        # return ""
 
-    """
-    def compare_memore(self, pid):
-        ram_memory = os.popen(f'gcore {pid}').read()
-        file_memory = None
-
-        with open(self.get_exec_path_by_pid(pid), 'rb') as exec_file:
-            file_memory = exec_file.read()
-        if file_memory == ram_memory:
-            print('TRUUUUUE')
-            # return True
-        else:
-            print('FAAALSEEEE')
-            return False
-    """
     @staticmethod
     def get_ip_info_from_virustotal(ip):
         import requests
@@ -212,7 +203,67 @@ class Process:
             print(response.json()['data']['attributes']['reputation'])
             return response.json()['data']['attributes']['reputation']
         else:
-            logger.critical(f'VirusTotal response code == {response.status_code} on get IP info request: {response.json()}')
+            logger.critical(
+                f'VirusTotal response code == {response.status_code} on get IP info request: {response.json()}')
+
+    def mem_diff_checker(self, pid): #add 'filename'
+        c_ptrace = ctypes.CDLL("libc.so.6").ptrace
+        c_pid_t = ctypes.c_int32
+        c_ptrace.argtypes = [ctypes.c_int, c_pid_t, ctypes.c_void_p, ctypes.c_void_p]
+
+        def ptrace(attach, pid):
+            op = ctypes.c_int(16 if attach else 17)  # PTRACE_ATTACH or PTRACE_DETACH
+            c_pid = c_pid_t(pid)
+            null = ctypes.c_void_p()
+            err = c_ptrace(op, c_pid, null, null)
+            if err != 0:
+                raise Exception(f'ptrace {err}')
+
+        def maps_line_range(line):
+            m = re.match(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])', line)
+            return [int(m.group(1), 16), int(m.group(2), 16), m.group(3)]
+
+        ptrace(True, int(pid))
+        maps_file = open(f"/proc/{pid}/maps", 'r')
+        ranges = map(maps_line_range, maps_file.readlines())
+        maps_file.close()
+        mem_file = open(f"/proc/{pid}/mem", 'r', 0)
+        all_mem = ''
+        for r in ranges:
+            if r[2] == 'r':
+                mem_file.seek(r[0])
+                chunk = mem_file.read(r[1] - r[0])
+                all_mem += chunk
+        mem_file.close()
+        ptrace(False, int(pid))
+
+        print(all_mem)
+        """
+        mem_checksum = hashlib.md5(all_mem.encode('utf-8')).hexdigest()
+        with open(filename, 'rb') as file:
+            code = file.read()
+        file_code_checksum = hashlib.md5(code.encode('utf-8')).hexdigest()
+            
+        if file_code_checksum is None:
+            raise Exception(f'File {filename} can not open')
+        
+        if mem_checksum == file_code_checksum:
+            return False
+        else:
+            diffs = []
+            diff_code_part = ''
+            for mem_byte, code_byte in zip([a for a in all_mem], [b for b in code]):
+                if mem_byte != code_byte:
+                    diff_code_part += mem_byte
+                else:
+                    if diff_code_part != '':
+                        diffs.append(diff_code_part)
+                        diff_code_part = ''
+            return True
+                
+        
+        """
+
 
     def event_loop(self):
         last_set = set()
@@ -231,6 +282,7 @@ class Process:
                 scoring.wx_segments(self.wx_checker(self._get_name()))
                 scoring.sign(self.sign_checker(self._get_name()))
                 scoring.packed_file(self.check_packed_file(self._get_name()))
+                scoring.mem_diff(self.mem_diff_checker(proc.pid))
                 """
                 res = ""
 
@@ -255,9 +307,8 @@ if __name__ == '__main__':
     logger.addHandler(handler)
 
     p = Process()
-    p.event_loop()
+    p.mem_diff_checker("""pid""")
     # p.event_loop()
-
 
 """
 import re
@@ -280,54 +331,9 @@ res = re.search('\[\s*[0-9]*\]\s*.*sig.*', sig)
 
 """
 
-
 """
 #!/usr/bin/env python
-import ctypes, re, sys
 
-## Partial interface to ptrace(2), only for PTRACE_ATTACH and PTRACE_DETACH.
-c_ptrace = ctypes.CDLL("libc.so.6").ptrace
-c_pid_t = ctypes.c_int32 # This assumes pid_t is int32_t
-c_ptrace.argtypes = [ctypes.c_int, c_pid_t, ctypes.c_void_p, ctypes.c_void_p]
-def ptrace(attach, pid):
-    op = ctypes.c_int(16 if attach else 17) #PTRACE_ATTACH or PTRACE_DETACH
-    c_pid = c_pid_t(pid)
-    null = ctypes.c_void_p()
-    err = c_ptrace(op, c_pid, null, null)
-    if err != 0: raise SysError, 'ptrace', err
 
-## Parse a line in /proc/$pid/maps. Return the boundaries of the chunk
-## the read permission character.
-def maps_line_range(line):
-    m = re.match(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])', line)
-    return [int(m.group(1), 16), int(m.group(2), 16), m.group(3)]
-
-## Dump the readable chunks of memory mapped by a process
-def cat_proc_mem(pid):
-    ## Apparently we need to ptrace(PTRACE_ATTACH, $pid) to read /proc/$pid/mem
-    ptrace(True, int(pid))
-    ## Read the memory maps to see what address ranges are readable
-    maps_file = open("/proc/" + pid + "/maps", 'r')
-    ranges = map(maps_line_range, maps_file.readlines())
-    maps_file.close()
-    ## Read the readable mapped ranges
-    mem_file = open("/proc/" + pid + "/mem", 'r', 0)
-    for r in ranges:
-        if r[2] == 'r':
-            mem_file.seek(r[0])
-            chunk = mem_file.read(r[1] - r[0])
-            print chunk,
-    mem_file.close()
-    ## Cleanup
-    ptrace(False, int(pid))
-
-if __name__ == "__main__":
-    for pid in sys.argv[1:]:
-        cat_proc_mem(pid)
-See also more information on /proc/$pid/mem.
-
-unswap () {
-  cat_proc_mem "$@" >/dev/null
-}
 
 """
