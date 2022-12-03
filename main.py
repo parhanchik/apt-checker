@@ -6,6 +6,7 @@ from math import pi, atan
 import logging
 import ctypes, sys
 import hashlib
+import mitre.mitre as mitre
 
 
 class CustomFormatter(logging.Formatter):
@@ -283,6 +284,18 @@ class Process:
                 scoring.sign(self.sign_checker(self._get_name()))
                 scoring.packed_file(self.check_packed_file(self._get_name()))
                 scoring.mem_diff(self.mem_diff_checker(proc.pid))
+
+                if scoring.get_verdict() != 'harmless':
+                    mitre_techniques = mitre.get_mitre_techniques(self._get_name())
+                    print(f'mitre_techniques - {mitre_techniques}')
+
+
+
+
+
+
+
+
                 """
                 res = ""
 
