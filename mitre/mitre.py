@@ -5,7 +5,7 @@ from mitre.yarascan import YaraScan, process_file
 
 def get_mitre_techniques(path_exe: str) -> dict:
     yara_scan = YaraScan()
-    mitre_file = os.path.join(os.getcwd(), 'mitre\\mitre.yar')
+    mitre_file = os.path.join(os.getcwd(), 'mitre/mitre.yar')
 
     yara_mitre_rules = yara.compile(mitre_file)
 

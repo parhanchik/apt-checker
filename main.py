@@ -72,8 +72,8 @@ class Score:
         self.total += self.score['wx_segments'] * len(segments)
 
     def sign(self, is_sign):
-        if is_sign:
-            self.total += self.score['is_sign']
+        if not is_sign:
+            self.total += self.score['sign']
 
     def packed_file(self, is_packed):
         if is_packed:
@@ -122,18 +122,38 @@ class Process:
 
     def _get_name(self, process):
         try:
-            proc_name = process.name()
+            proc_file = process.exe()
+        except Exception as e:
+            proc_file = f'/proc/{process.pid}/exe'
+#        proc_file = process._exe
+#        if proc_file == None: proc_file = f'/proc/{process.pid}/exe'
+        return proc_file
+    #def _get_name(self):
+        #try:
+        #    output = os.popen(f'ls -l /proc/{process.pid}/exe').read()
+        #    #output = os.popen(f'ls -l /proc/3396/exe').read()
+        #    if not re.match('->', output):
+        #        return 0
+        #    #print(output)
+        #    return output.split(' ')[-1][:-1]
+
+
+
+
+
+            #proc_name = process.name()
             # proc_id = process.pid
-            return proc_name
+            #return proc_name
             # return f"name: {proc_name}\npid: {proc_id}\n"
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
+        #except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        #    pass
 
     def wx_checker(self, filename):
         import subprocess
-        bashCommand = "readelf --segments --wide  %s" % (filename)
-        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-        output, error = process.communicate()
+        #bashCommand = "readelf --segments --wide  %s" % (filename)
+        #process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        #output, error = process.communicate()
+        output = os.popen(f'readelf --segments --wide {filename}').read()
         dummy = output
         wx_headers = re.findall('(.*)( *)( 0x.*)+ .?wx', dummy.lower())
         headers = re.findall('(.*)( *)( 0x.*)+ [rwxe]', dummy.lower())
@@ -149,7 +169,7 @@ class Process:
         # return SET with segments
 
     def sign_checker(self, filename):
-        output = os.popen(f'readelf --readelf {filename}').read()
+        output = os.popen(f'readelf --sections {filename}').read()
         res = re.search('\[\s*[0-9]*\]\s*.*sig.*', output)
         if res:
             return True
@@ -184,9 +204,10 @@ class Process:
                    "NSPack": "NSP0", "nspack": "NSP1", "NSpack": "NSP2", "NTKrnl": "NTKrnl Security Suite",
                    "PECompact": "PEC2", "pecompact": "PECompact2", "Themida": "Themida", "hemida": "aPa2Wa"}
         for el in packers:
-            bashCommand = "strings %s | grep %s" % (filename, packers[el])
-            process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-            output, error = process.communicate()
+            #bashCommand = "strings %s | grep %s" % (filename, packers[el])
+            #process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+            #output, error = process.communicate()
+            output = os.popen(f'strings {filename} | grep -e "^{packers[el]}$').read()
             if output != "":
                 # return "File %s can be packed with %s" % (filename, el)
                 return True
@@ -228,8 +249,8 @@ class Process:
         maps_file = open(f"/proc/{pid}/maps", 'r')
         ranges = map(maps_line_range, maps_file.readlines())
         maps_file.close()
-        mem_file = open(f"/proc/{pid}/mem", 'r', 0)
-        all_mem = ''
+        mem_file = open(f"/proc/{pid}/mem", 'rb', 0)
+        all_mem = b''
         for r in ranges:
             if r[2] == 'r':
                 mem_file.seek(r[0])
@@ -273,20 +294,22 @@ class Process:
             diff = proc_set - last_set
             last_set = proc_set
             for proc in diff:
+                #if self._get_name(proc) in ['blueberry-obex-agent', 0] or proc.pid < 1000:
+                #    continue
                 scoring = Score()
 
-                base_info = self._get_name(proc)
+                proc_file = self._get_name(proc)
                 connection = self._get_connection(proc)
 
                 if self.ip is not None:
                     scoring.ip_rating(self.get_ip_info_from_virustotal(self.ip))
-                scoring.wx_segments(self.wx_checker(self._get_name()))
-                scoring.sign(self.sign_checker(self._get_name()))
-                scoring.packed_file(self.check_packed_file(self._get_name()))
-                scoring.mem_diff(self.mem_diff_checker(proc.pid))
+                scoring.wx_segments(self.wx_checker(proc_file))
+                scoring.sign(self.sign_checker(proc_file))
+                scoring.packed_file(self.check_packed_file(proc_file))
+                #scoring.mem_diff(self.mem_diff_checker(proc.pid))
 
                 if scoring.get_verdict() != 'harmless':
-                    mitre_techniques = mitre.get_mitre_techniques(self._get_name())
+                    mitre_techniques = mitre.get_mitre_techniques(proc_file)
                     print(f'mitre_techniques - {mitre_techniques}')
 
 
@@ -320,8 +343,7 @@ if __name__ == '__main__':
     logger.addHandler(handler)
 
     p = Process()
-    p.mem_diff_checker("""pid""")
-    # p.event_loop()
+    p.event_loop()
 
 """
 import re
