@@ -107,8 +107,10 @@ class Process:
                     try:
                         # get provider name
                         whois_output = os.popen(f'whois {pcon.raddr.ip}').read()
+#                        print("HERE 2")
                         provider_name = re.search('OrgName:( *)(.*)', whois_output).group(2)
                         output += f"\t\tprovider name:\t{provider_name}\n"
+
                     except:
                         pass
                     return output
@@ -207,7 +209,7 @@ class Process:
             #bashCommand = "strings %s | grep %s" % (filename, packers[el])
             #process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
             #output, error = process.communicate()
-            output = os.popen(f'strings {filename} | grep -e "^{packers[el]}$').read()
+            output = os.popen(f'strings {filename} | grep -e "^{packers[el]}$"').read()
             if output != "":
                 # return "File %s can be packed with %s" % (filename, el)
                 return True
@@ -221,8 +223,8 @@ class Process:
                                 headers={
                                     'x-apikey': '87e1316d0cbe224ca6295c8f22451f4ad2ac47919e059979ef5baacb17cba903'})
         if response.ok:
-            print(f"{ip} :: {response.json()}")
-            print(response.json()['data']['attributes']['reputation'])
+#            print(f"{ip} :: {response.json()}")
+#            print(response.json()['data']['attributes']['reputation'])
             return response.json()['data']['attributes']['reputation']
         else:
             logger.critical(
@@ -294,6 +296,9 @@ class Process:
             diff = proc_set - last_set
             last_set = proc_set
             for proc in diff:
+                print(str(proc.pid))
+                if len(proc.cmdline()) == 0 or not proc.is_running():
+                    continue
                 #if self._get_name(proc) in ['blueberry-obex-agent', 0] or proc.pid < 1000:
                 #    continue
                 scoring = Score()
@@ -303,6 +308,7 @@ class Process:
 
                 if self.ip is not None:
                     scoring.ip_rating(self.get_ip_info_from_virustotal(self.ip))
+
                 scoring.wx_segments(self.wx_checker(proc_file))
                 scoring.sign(self.sign_checker(proc_file))
                 scoring.packed_file(self.check_packed_file(proc_file))
