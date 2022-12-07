@@ -69,6 +69,7 @@ class Score:
             raise Exception('Scoring: IP reputation is None')
 
     def wx_segments(self, segments):
+
         self.total += self.score['wx_segments'] * len(segments)
 
     def sign(self, is_sign):
@@ -250,7 +251,10 @@ class Process:
             else:
                 return []
 
-        ptrace(True, int(pid))
+        try:
+            ptrace(True, int(pid))
+        except Exception as e:
+            return False
         maps_file = open(f"/proc/{pid}/maps", 'r')
         ranges = [maps_line_range(line, filepath) for line in maps_file.readlines()]
         ranges = list(filter(None, ranges))
@@ -263,17 +267,25 @@ class Process:
                 chunk = mem_file.read(r[1] - r[0])
                 all_mem += chunk
         mem_file.close()
-        ptrace(False, int(pid))
-
-        print(all_mem)
-        """
-        mem_checksum = hashlib.md5(all_mem.encode('utf-8')).hexdigest()
-        with open(filename, 'rb') as file:
+        try:
+            ptrace(False, int(pid))
+        except Exception as e:
+            return False
+#        f = open(f"{pid}.my_mem", "wb")
+#        f.write(all_mem)
+#        f.close()
+#        print(all_mem)
+        
+        mem_checksum = hashlib.md5(all_mem[0:10000]).hexdigest()
+        with open(filepath, 'rb') as file:
             code = file.read()
-        file_code_checksum = hashlib.md5(code.encode('utf-8')).hexdigest()
-            
+        file_code_checksum = hashlib.md5(code[0:10000]).hexdigest()
+#        print(mem_checksum, file_code_checksum)         
+        if mem_checksum == file_code_checksum:
+            return False
+        """        
         if file_code_checksum is None:
-            raise Exception(f'File {filename} can not open')
+            raise Exception(f'File {filepath} can not open')
         
         if mem_checksum == file_code_checksum:
             return False
@@ -316,7 +328,7 @@ class Process:
                 scoring.wx_segments(self.wx_checker(proc_file))
                 scoring.sign(self.sign_checker(proc_file))
                 scoring.packed_file(self.check_packed_file(proc_file))
-                #scoring.mem_diff(self.mem_diff_checker(proc.pid, proc_file))
+                scoring.mem_diff(self.mem_diff_checker(proc.pid, proc_file))
 
                 if scoring.get_verdict() != 'harmless':
                     mitre_techniques = mitre.get_mitre_techniques(proc_file)
