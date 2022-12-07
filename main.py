@@ -230,7 +230,7 @@ class Process:
             logger.critical(
                 f'VirusTotal response code == {response.status_code} on get IP info request: {response.json()}')
 
-    def mem_diff_checker(self, pid): #add 'filename'
+    def mem_diff_checker(self, pid, filepath):
         c_ptrace = ctypes.CDLL("libc.so.6").ptrace
         c_pid_t = ctypes.c_int32
         c_ptrace.argtypes = [ctypes.c_int, c_pid_t, ctypes.c_void_p, ctypes.c_void_p]
@@ -243,13 +243,17 @@ class Process:
             if err != 0:
                 raise Exception(f'ptrace {err}')
 
-        def maps_line_range(line):
-            m = re.match(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])', line)
-            return [int(m.group(1), 16), int(m.group(2), 16), m.group(3)]
+        def maps_line_range(line, filepath):
+            m = re.match(fr'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r]).*{filepath}', line)
+            if m:
+                return [int(m.group(1), 16), int(m.group(2), 16), m.group(3)]
+            else:
+                return []
 
         ptrace(True, int(pid))
         maps_file = open(f"/proc/{pid}/maps", 'r')
-        ranges = map(maps_line_range, maps_file.readlines())
+        ranges = [maps_line_range(line, filepath) for line in maps_file.readlines()]
+        ranges = list(filter(None, ranges))
         maps_file.close()
         mem_file = open(f"/proc/{pid}/mem", 'rb', 0)
         all_mem = b''
@@ -312,7 +316,7 @@ class Process:
                 scoring.wx_segments(self.wx_checker(proc_file))
                 scoring.sign(self.sign_checker(proc_file))
                 scoring.packed_file(self.check_packed_file(proc_file))
-                #scoring.mem_diff(self.mem_diff_checker(proc.pid))
+                #scoring.mem_diff(self.mem_diff_checker(proc.pid, proc_file))
 
                 if scoring.get_verdict() != 'harmless':
                     mitre_techniques = mitre.get_mitre_techniques(proc_file)
