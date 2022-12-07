@@ -322,6 +322,7 @@ class Process:
                 proc_file = self._get_name(proc)
                 connection = self._get_connection(proc)
 
+                output = f'{proc.pid}  -  {proc_file.split("/")[-1]}'
                 if self.ip is not None:
                     scoring.ip_rating(self.get_ip_info_from_virustotal(self.ip))
 
@@ -330,29 +331,11 @@ class Process:
                 scoring.packed_file(self.check_packed_file(proc_file))
                 scoring.mem_diff(self.mem_diff_checker(proc.pid, proc_file))
 
+                output += f'  -  {scoring.get_verdict()}({scoring.total})'
                 if scoring.get_verdict() != 'harmless':
                     mitre_techniques = mitre.get_mitre_techniques(proc_file)
-                    print(f'mitre_techniques - {mitre_techniques}')
-
-
-
-
-
-
-
-
-                """
-                res = ""
-
-                base_info = self._get_name(proc)
-                connection = self._get_connection(proc)
-                res += base_info if base_info is not None else ""
-                res += connection if connection is not None else ""
-                self.get_exec_path_by_pid(proc.pid)
-                # if "Network connection" in res:
-                #    print(res)
-                print(res)
-                """
+                    output += f'  -  mitre_techniques: {mitre_techniques}'
+                print(output)
 
 
 if __name__ == '__main__':
@@ -367,30 +350,3 @@ if __name__ == '__main__':
     p = Process()
     p.event_loop()
 
-"""
-import re
-maps_file = open("/proc/self/maps", 'r')
-mem_file = open("/proc/self/mem", 'rb', 0)
-output_file = open("self.dump", 'wb')
-for line in maps_file.readlines():  # for each mapped region
-    m = re.match(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])', line)
-    if m.group(3) == 'r':  # if this is a readable region
-        start = int(m.group(1), 16)
-        end = int(m.group(2), 16)
-        mem_file.seek(start)  # seek to region start
-        chunk = mem_file.read(end - start)  # read region contents
-        output_file.write(chunk)  # dump contents to standard output
-maps_file.close()
-mem_file.close()
-output_file.close()
-
-res = re.search('\[\s*[0-9]*\]\s*.*sig.*', sig)
-
-"""
-
-"""
-#!/usr/bin/env python
-
-
-
-"""
