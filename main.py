@@ -14,6 +14,7 @@ class CustomFormatter(logging.Formatter):
     bright_yellow = "\033[93m"
     red = "\033[31m"
     bright_red = "\033[91m"
+    green = '\033[92m'
 
     bold = "\033[1m"
     reset = "\033[0m"
@@ -24,7 +25,7 @@ class CustomFormatter(logging.Formatter):
 
     FORMATS = {
         logging.DEBUG: bold + date + bright_yellow + level + 4 * ' ' + '|' + message + reset,
-        logging.INFO: bold + date + level + 5 * ' ' + '|' + message + reset,
+        logging.INFO: bold + date + green + level + 5 * ' ' + '|' + message + reset,
         logging.WARNING: bold + date + yellow + level + 2 * ' ' + '|' + message + reset,
         logging.ERROR: bold + date + red + level + 4 * ' ' + '|' + message + reset,
         logging.CRITICAL: bold + date + bright_red + level + ' ' + '|' + message + reset
@@ -336,7 +337,12 @@ class Process:
                 if scoring.get_verdict() != 'harmless':
                     mitre_techniques = mitre.get_mitre_techniques(proc_file)
                     output += f'  -  mitre_techniques: {mitre_techniques}'
-                print(output)
+                if scoring.get_verdict() == 'harmless':
+                    logger.info(output)
+                elif scoring.get_verdict() == 'warning':
+                    logger.warning(output)
+                elif scoring.get_verdict() == 'critical':
+                    logger.critical(output)
 
 
 if __name__ == '__main__':
