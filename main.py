@@ -39,8 +39,8 @@ class CustomFormatter(logging.Formatter):
 class Score:
     def __init__(self):
         self.max = pi / 2
-        self.warn = self.max * 0.85
-        self.critical = self.max * 0.95
+        self.warn = self.max * 0.985
+        self.critical = self.max * 0.995
         self.total = 0
         self.score = {'sign': 10,
                       'wx_segments': 10,
@@ -83,6 +83,7 @@ class Score:
     def mem_diff(self, is_diff):
         if is_diff:
             self.total += self.score['mem_diff']
+
 
 class Process:
     def __init__(self):
@@ -312,7 +313,7 @@ class Process:
             diff = proc_set - last_set
             last_set = proc_set
             for proc in diff:
-                print(str(proc.pid))
+                #print(str(proc.pid))
                 if len(proc.cmdline()) == 0 or not proc.is_running():
                     continue
                 #if self._get_name(proc) in ['blueberry-obex-agent', 0] or proc.pid < 1000:
