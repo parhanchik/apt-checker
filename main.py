@@ -7,6 +7,7 @@ import logging
 import ctypes, sys
 import hashlib
 import mitre.mitre as mitre
+from operator import itemgetter
 
 
 class CustomFormatter(logging.Formatter):
@@ -313,7 +314,9 @@ class Process:
             proc_set = self._get_all()
             diff = proc_set - last_set
             last_set = proc_set
+            top_processes = []
             for proc in diff:
+                cur_proc = {}
                 #print(str(proc.pid))
                 if len(proc.cmdline()) == 0 or not proc.is_running():
                     continue
@@ -328,22 +331,43 @@ class Process:
                 if self.ip is not None:
                     scoring.ip_rating(self.get_ip_info_from_virustotal(self.ip))
 
-                scoring.wx_segments(self.wx_checker(proc_file))
-                scoring.sign(self.sign_checker(proc_file))
-                scoring.packed_file(self.check_packed_file(proc_file))
-                scoring.mem_diff(self.mem_diff_checker(proc.pid, proc_file))
+                sign_checker_result = self.sign_checker(proc_file)
+                wx_checker_result = self.wx_checker(proc_file)
+                check_packed_file_result = self.check_packed_file(proc_file)
+                mem_diff_result = self.mem_diff_checker(proc.pid, proc_file)
+
+                scoring.wx_segments(wx_checker_result)
+                scoring.sign(sign_checker_result)
+                scoring.packed_file(check_packed_file_result)
+                scoring.mem_diff(mem_diff_result)
+
+                cur_proc['sign_checker'] = sign_checker_result
+                cur_proc['wx_checker'] = wx_checker_result
+                cur_proc['check_packed_file'] = check_packed_file_result
+                cur_proc['mem_diff'] = mem_diff_result
 
                 output += f'  -  {scoring.get_verdict()}({scoring.total})'
+
+                cur_proc['mitre_techniques'] = {}
+                cur_proc['name'] = proc_file.split('/')[-1]
                 if scoring.get_verdict() != 'harmless':
                     mitre_techniques = mitre.get_mitre_techniques(proc_file)
                     output += f'  -  mitre_techniques: {mitre_techniques}'
-                if scoring.get_verdict() == 'harmless':
-                    logger.info(output)
-                elif scoring.get_verdict() == 'warning':
-                    logger.warning(output)
-                elif scoring.get_verdict() == 'critical':
-                    logger.critical(output)
+                    cur_proc['mitre_techniques'] = mitre_techniques
+                #if scoring.get_verdict() == 'harmless':
+                #    logger.info(output)
+                #elif scoring.get_verdict() == 'warning':
+                #    logger.warning(output)
+                #elif scoring.get_verdict() == 'critical':
+                #    logger.critical(output)
 
+                cur_proc['verdict'] = scoring.get_verdict()
+                cur_proc['total'] = scoring.total
+                top_processes.append(cur_proc)
+                top_processes = sorted(top_processes, key=itemgetter('total'), reverse = True)
+                for item in top_processes:
+                    print(f"{item['name']} - {item['total']} - {item['sign_checker']} - {item['wx_checker']} - {item['check_packed_file']} - {item['mem_diff']}")
+                os.system('clear')
 
 if __name__ == '__main__':
     logging.Formatter(datefmt='%H:%M:%S')
