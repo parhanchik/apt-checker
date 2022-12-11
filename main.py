@@ -372,8 +372,15 @@ class Process:
                 print(head)
                 os.system('clear')
                 for item in top_processes[:12]:
-                    output = f"{item['name']}\t\t\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
-                             f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
+                    if len(item['name'] > 23):
+                        output = f"{item['name']}\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                                 f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
+                    elif len(item['name'] > 16):
+                        output = f"{item['name']}\t\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                                 f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
+                    else:
+                        output = f"{item['name']}\t\t\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                                 f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
 
                     if scoring.get_verdict() == 'harmless':
                         logger.info(output)
