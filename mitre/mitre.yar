@@ -7,7 +7,7 @@ rule screenshot : T1113 {
         $c1 = "libutil.so.1"
         $c2 = "opencv.so"
     condition:
-        1 of ($d*) and 1 of ($c*)
+        1 of ($d*) or 1 of ($c*)
 }
 
 

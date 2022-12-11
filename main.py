@@ -279,10 +279,10 @@ class Process:
 #        f.close()
 #        print(all_mem)
         
-        mem_checksum = hashlib.md5(all_mem[0:10000]).hexdigest()
+        mem_checksum = hashlib.md5(all_mem[0:100000]).hexdigest()
         with open(filepath, 'rb') as file:
             code = file.read()
-        file_code_checksum = hashlib.md5(code[0:10000]).hexdigest()
+        file_code_checksum = hashlib.md5(code[0:100000]).hexdigest()
 #        print(mem_checksum, file_code_checksum)         
         if mem_checksum == file_code_checksum:
             return False
@@ -364,10 +364,10 @@ class Process:
                 cur_proc['verdict'] = scoring.get_verdict()
                 cur_proc['total'] = scoring.total
                 top_processes.append(cur_proc)
-                top_processes = sorted(top_processes, key=itemgetter('total'), reverse = True)
+                top_processes = sorted(top_processes, key=itemgetter('total'))#, reverse = True)
                 for item in top_processes:
-                    print(f"{item['name']} - {item['total']} - {item['sign_checker']} - {item['wx_checker']} - {item['check_packed_file']} - {item['mem_diff']}")
-                os.system('clear')
+                    print(f"{item['name']} - {item['total']} - {item['sign_checker']} - {item['wx_checker']} - {item['check_packed_file']} - {item['mem_diff']} - {item['mitre_techniques']}")
+                #os.system('clear')
 
 if __name__ == '__main__':
     logging.Formatter(datefmt='%H:%M:%S')
