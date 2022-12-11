@@ -68,7 +68,8 @@ class Score:
                 # good ip
                 pass
         else:
-            raise Exception('Scoring: IP reputation is None')
+            pass
+            #raise Exception('Scoring: IP reputation is None')
 
     def wx_segments(self, segments):
 
@@ -231,8 +232,9 @@ class Process:
 #            print(response.json()['data']['attributes']['reputation'])
             return response.json()['data']['attributes']['reputation']
         else:
-            logger.critical(
-                f'VirusTotal response code == {response.status_code} on get IP info request: {response.json()}')
+            return 0
+            #logger.critical(
+            #    f'VirusTotal response code == {response.status_code} on get IP info request: {response.json()}')
 
     def mem_diff_checker(self, pid, filepath):
         c_ptrace = ctypes.CDLL("libc.so.6").ptrace
@@ -365,9 +367,21 @@ class Process:
                 cur_proc['total'] = scoring.total
                 top_processes.append(cur_proc)
                 top_processes = sorted(top_processes, key=itemgetter('total'))#, reverse = True)
-                for item in top_processes:
-                    print(f"{item['name']} - {item['total']} - {item['sign_checker']} - {item['wx_checker']} - {item['check_packed_file']} - {item['mem_diff']} - {item['mitre_techniques']}")
-                #os.system('clear')
+                head = '                          PROCESS_NAME    VERDICT(SCORE)    SIGN    WX_SEGMENTS    PACKED' \
+                       '    MEMORY_DIFF    MITRE'
+                print(head)
+                os.system('clear')
+                for item in top_processes[:12]:
+                    output = f"{item['name']}\t\t\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                             f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
+
+                    if scoring.get_verdict() == 'harmless':
+                        logger.info(output)
+                    elif scoring.get_verdict() == 'warning':
+                        logger.warning(output)
+                    elif scoring.get_verdict() == 'critical':
+                        logger.critical(output)
+
 
 if __name__ == '__main__':
     logging.Formatter(datefmt='%H:%M:%S')
