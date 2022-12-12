@@ -365,21 +365,22 @@ class Process:
 
                 cur_proc['verdict'] = scoring.get_verdict()
                 cur_proc['total'] = scoring.total
+                cur_proc['pid'] = proc.pid
                 top_processes.append(cur_proc)
-                top_processes = sorted(top_processes, key=itemgetter('total'))#, reverse = True)
-                head = '                          PROCESS_NAME    VERDICT(SCORE)    SIGN    WX_SEGMENTS    PACKED' \
+                top_processes = sorted(top_processes, key=itemgetter('total'), reverse = True)
+                head = '                          PROCESS_NAME    PID    VERDICT(SCORE)    SIGN    WX_SEGMENTS    PACKED' \
                        '    MEMORY_DIFF    MITRE'
                 print(head)
                 os.system('clear')
                 for item in top_processes[:12]:
-                    if len(item['name'] > 23):
-                        output = f"{item['name']}\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                    if len(item['name']) > 23:
+                        output = f"{item['name']}\t{cur_proc['pid']}\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
                                  f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
                     elif len(item['name'] > 16):
-                        output = f"{item['name']}\t\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                        output = f"{item['name']}\t\t{cur_proc['pid']}\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
                                  f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
                     else:
-                        output = f"{item['name']}\t\t\t{cur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
+                        output = f"{item['name']}\t\t\t{cur_proc['pid']}\tcur_proc['verdict']}({item['total']})\t\t{item['sign_checker']}\t\t" \
                                  f"{item['wx_checker']}\t\t{item['check_packed_file']}\t\t{item['mem_diff']}\t\t{item['mitre_techniques']}"
 
                     if scoring.get_verdict() == 'harmless':
